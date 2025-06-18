@@ -220,3 +220,84 @@ tail -f /var/log/apache2/error.log
 - Se puede acceder por SSH usando clave sin contraseña
 
 ---
+
+## 🧩 Punto 3 – Configuración de red con IP estática
+
+### 1) Diagnóstico principal
+
+La VM inicialmente funcionaba con IP asignada por DHCP. Esto generaba:
+
+- Incertidumbre sobre qué IP tendría la máquina en cada arranque.
+- Problemas para acceder desde el navegador o por SSH si la IP cambiaba.
+- Inconvenientes para conectar servicios de forma predecible.
+
+Se necesitaba una **IP estática persistente**, como lo exige el TP.
+
+---
+
+### 2) Solución implementada
+
+#### 📌 Obtención de parámetros de red actuales
+
+Se ejecutó:
+
+```bash
+ip a
+ip route
+```
+
+Esto permitió relevar:
+
+- Interfaz activa: `enp0s3`
+- IP asignada: `192.168.1.33`
+- Gateway: `192.168.1.1`
+
+---
+
+#### ✍️ Configuración de IP estática
+
+Se editó el archivo `/etc/network/interfaces`:
+
+```bash
+vi /etc/network/interfaces
+```
+
+Y se reemplazó el contenido relacionado con `enp0s3` por:
+
+```ini
+auto enp0s3
+iface enp0s3 inet static
+    address 192.168.1.33
+    netmask 255.255.255.0
+    gateway 192.168.1.1
+```
+
+---
+
+#### 🔁 Reinicio de red
+
+Para aplicar cambios sin reiniciar el sistema:
+
+```bash
+ifdown enp0s3 && ifup enp0s3
+```
+
+O se reinició la VM completamente para garantizar la persistencia.
+
+---
+
+### 3) Resultado
+
+- La VM tomó correctamente la IP `192.168.1.33` de forma fija.
+- Se pudo acceder a los servicios desde el navegador y SSH sin depender del DHCP.
+- La IP quedó reservada y funcional a través de todos los reinicios.
+
+---
+
+### 4) Estado actual
+
+- La interfaz `enp0s3` tiene configuración estática.
+- El archivo `/etc/network/interfaces` contiene los valores requeridos.
+- La red opera de forma estable y predecible.
+
+---
