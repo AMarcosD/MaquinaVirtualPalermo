@@ -97,3 +97,126 @@ hostnamectl set-hostname TPServer
 - La red funciona correctamente y permite navegación, descarga e instalación de paquetes.
 
 ---
+
+## 🧩 Punto 2 – Servicios: SSH, Apache, PHP y MariaDB
+
+### 1) Diagnóstico principal
+
+Luego de tener acceso como root y red operativa, se debía convertir la VM en un servidor funcional. El trabajo requería:
+
+- Acceso remoto por SSH
+- Un servidor web operativo con Apache y PHP
+- Un motor de base de datos MariaDB funcional
+- Conexión entre el servidor web (PHP) y la base de datos
+
+Problemas detectados:
+
+- ❌ No estaba instalado `openssh-server`
+- ❌ No se podía copiar fácilmente la clave pública desde el host
+- ❌ Faltaban los paquetes `apache2`, `php`, `mariadb-server`, `php-mysql`
+- ❌ El archivo `index.php` requería conexión a base de datos y no se conectaba
+
+---
+
+### 2) Solución implementada
+
+#### 🔐 Instalación de SSH y autenticación por clave pública
+
+Se instaló el servidor SSH:
+
+```bash
+apt update && apt install openssh-server -y
+```
+
+Para evitar el uso de contraseña, se habilitó autenticación por clave pública. Se copió `clave_publica.pub` desde una carpeta compartida montada y se configuró:
+
+```bash
+mkdir -p /root/.ssh
+cp /media/sf_vm_share/clave_publica.pub /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+chmod 700 /root/.ssh
+```
+
+Se verificó acceso desde el host con:
+
+```bash
+ssh -i /ruta/a/clave_privada.txt root@IP_VM
+```
+
+---
+
+#### 🌐 Carpeta compartida entre Windows y la VM
+
+Se montó la carpeta de VirtualBox manualmente:
+
+```bash
+mount -t vboxsf vm_share /media/sf_vm_share
+```
+
+---
+
+#### 🌐 Instalación de Apache y PHP
+
+Se instalaron los servicios:
+
+```bash
+apt install apache2 php libapache2-mod-php -y
+```
+
+---
+
+#### 🛠️ Instalación y configuración de MariaDB
+
+```bash
+apt install mariadb-server php-mysql -y
+```
+
+Se creó la base de datos y tablas con el script `db.sql`, importado desde la carpeta compartida:
+
+```bash
+mysql < /media/sf_vm_share/db.sql
+```
+
+Se creó el usuario y se dieron permisos:
+
+```sql
+GRANT ALL PRIVILEGES ON ingenieria.* TO 'lcars'@'localhost' IDENTIFIED BY 'NCC1701D';
+FLUSH PRIVILEGES;
+```
+
+---
+
+#### 🖥️ Configuración del archivo `index.php`
+
+Se movió `index.php` y `logo.png` a `/var/www/html`. El archivo PHP intentaba conectarse a la base usando `mysqli`.
+
+Problemas:
+- ❌ Error HTTP 500 → se debió a permisos incorrectos
+- ❌ Access denied → usuario mal creado o no existente
+
+Solución:
+- Se ajustaron permisos con `chmod` y `chown`
+- Se corrigió el usuario y contraseña, y se validó con logs:
+
+```bash
+tail -f /var/log/apache2/error.log
+```
+
+---
+
+### 3) Resultado
+
+- Apache responde correctamente en `http://192.168.1.33/index.php`
+- El archivo `index.php` se conecta a MariaDB y muestra los datos correctamente
+- SSH funcional con clave desde el host
+
+---
+
+### 4) Estado actual
+
+- Apache, PHP y MariaDB están instalados, activos y funcionando
+- El usuario `lcars` tiene acceso a la base `ingenieria`
+- El contenido web se encuentra en `/var/www/html`
+- Se puede acceder por SSH usando clave sin contraseña
+
+---
