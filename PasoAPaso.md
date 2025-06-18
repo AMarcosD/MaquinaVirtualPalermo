@@ -433,3 +433,111 @@ Opcional: se puede hacer un symlink en `/proc`, aunque es efímero.
 - `/backup_dir` listo para almacenar backups
 - Configuración permanente validada en `/etc/fstab`
 
+---
+
+## 🧩 Punto 5 – Script de Backup y Automatización
+
+### 1) Diagnóstico principal
+
+El TP requería automatizar copias de seguridad de dos directorios distintos (`/var/log` y `/www_dir`) hacia `/backup_dir`. Los requisitos incluían:
+
+- Un script llamado `backup_full.sh` alojado en `/opt/scripts/`
+- Backup comprimido `.tar.gz` con la fecha en el nombre
+- Validaciones de existencia de origen y destino
+- Uso de argumentos para directorios
+- Incluir un `-help`
+- Programación automática con `cron`
+
+---
+
+### 2) Solución implementada
+
+#### 📁 Creación de carpeta y script
+
+Se creó la carpeta:
+
+```bash
+mkdir -p /opt/scripts
+```
+
+Se creó y editó el archivo `/opt/scripts/backup_full.sh`:
+
+```bash
+vi /opt/scripts/backup_full.sh
+```
+
+Contenido del script (resumen de comportamiento):
+
+- Verifica si el usuario pidió ayuda con `-help`
+- Chequea si se pasaron exactamente dos argumentos
+- Valida existencia de los directorios
+- Genera un archivo con formato:
+  `/backup_dir/NOMBREORIGEN_bkp_YYYYMMDD.tar.gz`
+- Usa `tar` para comprimir el contenido
+
+Se le dieron permisos de ejecución:
+
+```bash
+chmod +x /opt/scripts/backup_full.sh
+```
+
+---
+
+#### 🧪 Pruebas del script
+
+Se probó con:
+
+```bash
+/opt/scripts/backup_full.sh /var/log /backup_dir
+```
+
+Y se validó el contenido con:
+
+```bash
+ls /backup_dir
+```
+
+---
+
+#### ⏰ Automatización con cron
+
+Se editó el crontab de root:
+
+```bash
+crontab -e
+```
+
+Y se agregaron las siguientes líneas:
+
+```cron
+# Todos los días a las 00:00 → /var/log
+0 0 * * * /opt/scripts/backup_full.sh /var/log /backup_dir
+
+# Lunes, Miércoles y Viernes a las 23:00 → /www_dir
+0 23 * * 1,3,5 /opt/scripts/backup_full.sh /www_dir /backup_dir
+```
+
+Se validó con:
+
+```bash
+crontab -l
+```
+
+---
+
+### 3) Resultado
+
+- El script realiza backups comprimidos correctamente
+- Se validan argumentos y existencia de directorios
+- Los archivos generados tienen fecha e identificación
+- Las tareas se ejecutan automáticamente según cron
+
+---
+
+### 4) Estado actual
+
+- Script funcional y alojado en `/opt/scripts/backup_full.sh`
+- Automatización activa vía `cron`
+- Backups confirmados en `/backup_dir`
+
+
