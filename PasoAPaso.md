@@ -301,3 +301,135 @@ O se reinició la VM completamente para garantizar la persistencia.
 - La red opera de forma estable y predecible.
 
 ---
+
+## 🧩 Punto 4 – Almacenamiento: discos, montaje y Apache
+
+### 1) Diagnóstico principal
+
+El trabajo requería:
+
+- Agregar un disco extra de 10 GB
+- Crear dos particiones: una de 3 GB para el sitio web y otra de 6 GB para backups
+- Montar esas particiones en `/www_dir` y `/backup_dir`
+- Configurar Apache para que sirva contenido desde `/www_dir`
+- Asegurar montaje automático con `fstab`
+- Generar archivo `/proc/particion` desde `/proc/partitions`
+
+Problemas encontrados:
+
+- ❌ El nuevo disco no era detectado hasta reiniciar la VM
+- ❌ Apache arrojaba error 403 cuando se cambió la raíz del sitio
+- ❌ El archivo `/proc/particion` no puede persistirse dentro de `/proc`
+
+---
+
+### 2) Solución implementada
+
+#### 💽 Creación del disco adicional
+
+Desde VirtualBox se agregó un disco de 10 GB. Al reiniciar la VM, se detectó como `/dev/sdc`.
+
+#### 📐 Particionamiento y formato
+
+Se usó `fdisk`:
+
+```bash
+fdisk /dev/sdc
+```
+
+Se crearon dos particiones:
+- `/dev/sdc1` de 3 GB
+- `/dev/sdc2` de 6 GB
+
+Ambas se formatearon como `ext4`:
+
+```bash
+mkfs.ext4 /dev/sdc1
+mkfs.ext4 /dev/sdc2
+```
+
+---
+
+#### 📂 Creación de puntos de montaje y montaje manual
+
+```bash
+mkdir /www_dir
+mkdir /backup_dir
+
+mount /dev/sdc1 /www_dir
+mount /dev/sdc2 /backup_dir
+```
+
+---
+
+#### 🛠️ Modificación de Apache
+
+Se editó `/etc/apache2/sites-available/000-default.conf`:
+
+```apache
+DocumentRoot /www_dir
+
+<Directory /www_dir>
+    Options Indexes FollowSymLinks
+    AllowOverride None
+    Require all granted
+</Directory>
+```
+
+Y se reinició Apache:
+
+```bash
+systemctl restart apache2
+```
+
+Se solucionó el error 403 asegurando permisos de lectura:
+
+```bash
+chmod -R 755 /www_dir
+```
+
+---
+
+#### 📌 Montaje automático con fstab
+
+Se obtuvieron los UUIDs con:
+
+```bash
+blkid
+```
+
+Se editó `/etc/fstab`:
+
+```fstab
+UUID=... /www_dir     ext4    defaults    0 2
+UUID=... /backup_dir  ext4    defaults    0 2
+```
+
+---
+
+#### 📝 Creación de archivo de particiones
+
+```bash
+cat /proc/partitions > /root/particion
+```
+
+Opcional: se puede hacer un symlink en `/proc`, aunque es efímero.
+
+---
+
+### 3) Resultado
+
+- El sitio web funciona desde `/www_dir`
+- Ambas particiones están montadas y operativas
+- El contenido persiste y se monta automáticamente al iniciar
+- Se creó `/root/particion` como lo requiere el TP
+
+---
+
+### 4) Estado actual
+
+- Disco `/dev/sdc` con dos particiones activas
+- Apache sirve desde `/www_dir`
+- `/backup_dir` listo para almacenar backups
+- Configuración permanente validada en `/etc/fstab`
+
